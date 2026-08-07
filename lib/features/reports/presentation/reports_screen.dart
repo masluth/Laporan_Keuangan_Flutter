@@ -19,7 +19,7 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.lightBg,
+      backgroundColor: const Color.fromARGB(255, 125, 137, 150),
       appBar: AppBar(
         backgroundColor: AppColors.lightBg,
         title: Text(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'report_preview_screen.dart';
 import '../../../core/theme/app_colors.dart';
 
 class ExportReportSheet extends StatefulWidget {
@@ -14,14 +15,18 @@ class _ExportReportSheetState extends State<ExportReportSheet> {
   String _selectedPeriod = 'Bulan Ini (Oktober 2023)';
 
   void _confirmExport() {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Laporan ($_selectedFormat) berhasil diekspor!'),
-        backgroundColor: AppColors.incomeGreen,
+  Navigator.pop(context);
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ReportPreviewScreen(
+        format: _selectedFormat,
+        period: _selectedPeriod,
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
