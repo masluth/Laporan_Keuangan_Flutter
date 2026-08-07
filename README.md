@@ -1,17 +1,33 @@
-# tester_antigravity
+# Revenant Finance Manager
 
-A new Flutter project.
+Revenant Finance Manager adalah aplikasi manajemen keuangan berbasis Flutter yang dikembangkan sebagai media pembelajaran dan pengembangan portofolio. Aplikasi ini bertujuan membantu pengguna dalam mencatat pemasukan dan pengeluaran, melihat ringkasan keuangan, serta menghasilkan laporan keuangan dalam format PDF dan CSV.
 
-## Getting Started
+## Fitur
 
-This project is a starting point for a Flutter application.
+- Dashboard ringkasan keuangan
+- Manajemen transaksi pemasukan dan pengeluaran
+- Kategori transaksi
+- Status transaksi (Lunas / Belum Lunas)
+- Pencarian dan filter transaksi
+- Pratinjau laporan keuangan
+- Ekspor laporan ke format PDF
+- Ekspor laporan ke format CSV
+- Antarmuka modern dan responsif
 
-A few resources to get you started if this is your first Flutter project:
+## Teknologi yang Digunakan
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter
+- Dart
+- Riverpod
+- PDF
+- Printing
+- CSV
+- Google Fonts
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Status Pengembangan
+
+🚧 Proyek masih dalam tahap pengembangan. Beberapa fitur masih akan terus disempurnakan, termasuk penyimpanan data, autentikasi, ekspor laporan, dan peningkatan pengalaman pengguna.
+
+## Tujuan Proyek
+
+Proyek ini dikembangkan sebagai sarana pembelajaran Flutter sekaligus menjadi bagian dari portofolio pengembangan aplikasi mobile.
