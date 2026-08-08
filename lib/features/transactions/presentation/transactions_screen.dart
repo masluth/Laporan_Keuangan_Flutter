@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/status_chip.dart';
 import '../../../shared/widgets/transaction_tile.dart';
+import '../data/transaction_model.dart';
 import '../providers/transaction_provider.dart';
 import 'add_transaction_sheet.dart';
 
@@ -12,14 +14,25 @@ class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
   @override
-  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
+  ConsumerState<TransactionsScreen> createState() =>
+      _TransactionsScreenState();
 }
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   String _searchQuery = '';
   String _selectedFilter = 'Semua';
 
-  final List<String> _filters = ['Semua', 'Lunas', 'Belum Lunas', 'Pemasukan', 'Pengeluaran'];
+  final List<String> _filters = [
+    'Semua',
+    'Lunas',
+    'Belum Lunas',
+    'Pemasukan',
+    'Pengeluaran',
+  ];
+
+  // =========================
+  // TAMBAH TRANSAKSI
+  // =========================
 
   void _showAddTransactionSheet(BuildContext context) {
     showModalBottomSheet(
@@ -30,90 +43,259 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
+  // =========================
+  // EDIT TRANSAKSI
+  // =========================
+
+  void _showEditTransaction(
+    BuildContext context,
+    TransactionModel transaction,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AddTransactionSheet(
+        transaction: transaction,
+      ),
+    );
+  }
+
+  // =========================
+  // KONFIRMASI HAPUS
+  // =========================
+
+  void _showDeleteConfirmation(
+    BuildContext context,
+    String transactionId,
+    String transactionTitle,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.lightBg,
+          title: const Text('Hapus Transaksi'),
+          content: Text(
+            'Apakah kamu yakin ingin menghapus "$transactionTitle"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+
+                try {
+                  await ref
+                      .read(transactionProvider.notifier)
+                      .deleteTransaction(transactionId);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Transaksi berhasil dihapus',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Gagal menghapus transaksi',
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // =========================
+  // BUILD
+  // =========================
+
   @override
   Widget build(BuildContext context) {
     final transactions = ref.watch(transactionProvider);
-    final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    // Filter logic
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    // =========================
+    // FILTER TRANSAKSI
+    // =========================
+
     final filteredTransactions = transactions.where((t) {
-      final matchesSearch = t.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          t.category.toLowerCase().contains(_searchQuery.toLowerCase());
-      if (!matchesSearch) return false;
+      final searchQuery = _searchQuery.toLowerCase();
 
-      if (_selectedFilter == 'Lunas') return t.status == TransactionStatus.lunas;
-      if (_selectedFilter == 'Belum Lunas') return t.status == TransactionStatus.belumLunas;
-      if (_selectedFilter == 'Pemasukan') return !t.isExpense;
-      if (_selectedFilter == 'Pengeluaran') return t.isExpense;
+      final matchesSearch =
+          t.title.toLowerCase().contains(searchQuery) ||
+          t.category.toLowerCase().contains(searchQuery);
+
+      if (!matchesSearch) {
+        return false;
+      }
+
+      if (_selectedFilter == 'Lunas') {
+        return t.status == TransactionStatus.lunas;
+      }
+
+      if (_selectedFilter == 'Belum Lunas') {
+        return t.status == TransactionStatus.belumLunas;
+      }
+
+      if (_selectedFilter == 'Pemasukan') {
+        return !t.isExpense;
+      }
+
+      if (_selectedFilter == 'Pengeluaran') {
+        return t.isExpense;
+      }
+
       return true;
     }).toList();
 
     return Scaffold(
       backgroundColor: AppColors.lightBg,
+
+      // =========================
+      // APP BAR
+      // =========================
+
       appBar: AppBar(
         backgroundColor: AppColors.lightBg,
+        elevation: 0,
         title: Text(
           'Transactions',
           style: AppTextStyles.headlineMedium(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_rounded, color: AppColors.primaryBlue),
+            icon: const Icon(
+              Icons.add_rounded,
+              color: AppColors.primaryBlue,
+            ),
             onPressed: () => _showAddTransactionSheet(context),
           ),
         ],
       ),
+
+      // =========================
+      // BODY
+      // =========================
+
       body: Column(
         children: [
-          // Search & Filter Header
+          // =========================
+          // SEARCH & FILTER
+          // =========================
+
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 8.0,
+            ),
             child: Column(
               children: [
-                // Search Field
+                // SEARCH
                 TextField(
-                  onChanged: (val) => setState(() => _searchQuery = val),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
                   decoration: InputDecoration(
                     hintText: 'Cari transaksi...',
-                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondaryLight),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: AppColors.textSecondaryLight,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12.0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
-                      borderSide: const BorderSide(color: AppColors.lightBorder),
+                      borderSide: const BorderSide(
+                        color: AppColors.lightBorder,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(
+                        color: AppColors.lightBorder,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                      borderSide: const BorderSide(
+                        color: AppColors.primaryBlue,
+                      ),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 12.0),
 
-                // Filter Chips List
+                // FILTER CHIPS
                 SizedBox(
                   height: 36.0,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _filters.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 8.0),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8.0),
                     itemBuilder: (context, index) {
                       final filter = _filters[index];
-                      final isSelected = _selectedFilter == filter;
+                      final isSelected =
+                          _selectedFilter == filter;
+
                       return ChoiceChip(
                         label: Text(
                           filter,
                           style: TextStyle(
                             fontSize: 12.0,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? Colors.white : AppColors.textSecondaryLight,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textSecondaryLight,
                           ),
                         ),
                         selected: isSelected,
                         selectedColor: AppColors.primaryBlue,
                         backgroundColor: Colors.white,
-                        onSelected: (val) => setState(() => _selectedFilter = filter),
+                        onSelected: (_) {
+                          setState(() {
+                            _selectedFilter = filter;
+                          });
+                        },
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20.0),
                           side: BorderSide(
-                            color: isSelected ? AppColors.primaryBlue : AppColors.lightBorder,
+                            color: isSelected
+                                ? AppColors.primaryBlue
+                                : AppColors.lightBorder,
                           ),
                         ),
                       );
@@ -123,45 +305,90 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 8.0),
 
-          // Transactions List
+          // =========================
+          // TRANSACTION LIST
+          // =========================
+
           Expanded(
             child: filteredTransactions.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.receipt_long_outlined, size: 56.0, color: AppColors.textMutedLight),
+                        const Icon(
+                          Icons.receipt_long_outlined,
+                          size: 56.0,
+                          color: AppColors.textMutedLight,
+                        ),
                         const SizedBox(height: 12.0),
                         Text(
                           'Tidak ada transaksi ditemukan',
-                          style: AppTextStyles.bodyMedium(color: AppColors.textMutedLight),
+                          style: AppTextStyles.bodyMedium(
+                            color: AppColors.textMutedLight,
+                          ),
                         ),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 8.0,
+                    ),
                     itemCount: filteredTransactions.length,
                     itemBuilder: (context, index) {
                       final item = filteredTransactions[index];
+
                       return TransactionTile(
                         title: item.title,
                         date: item.date,
                         amount: currencyFormat.format(item.amount),
                         isExpense: item.isExpense,
                         status: item.status,
+
+                        // =========================
+                        // EDIT
+                        // =========================
+
+                        onEdit: () {
+                          _showEditTransaction(
+                            context,
+                            item,
+                          );
+                        },
+
+                        // =========================
+                        // DELETE
+                        // =========================
+
+                        onDelete: () {
+                          _showDeleteConfirmation(
+                            context,
+                            item.id,
+                            item.title,
+                          );
+                        },
                       );
                     },
                   ),
           ),
         ],
       ),
+
+      // =========================
+      // FLOATING ACTION BUTTON
+      // =========================
+
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddTransactionSheet(context),
         backgroundColor: AppColors.primaryBlue,
-        child: const Icon(Icons.add_rounded, color: Colors.white),
+        child: const Icon(
+          Icons.add_rounded,
+          color: Colors.white,
+        ),
       ),
     );
   }

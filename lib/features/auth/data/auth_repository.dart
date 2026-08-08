@@ -1,46 +1,72 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRepository {
-  final FirebaseAuth? _firebaseAuth;
+  final SupabaseClient _supabase;
 
-  AuthRepository([this._firebaseAuth]);
+  AuthRepository([SupabaseClient? supabase])
+      : _supabase = supabase ?? Supabase.instance.client;
 
-  User? get currentUser => _firebaseAuth?.currentUser;
+  // =========================================================
+  // CURRENT USER
+  // =========================================================
 
-  Stream<User?> get authStateChanges => _firebaseAuth?.authStateChanges() ?? Stream.value(null);
-
-  Future<bool> signInWithEmail(String email, String password) async {
-    if (_firebaseAuth != null) {
-      try {
-        await _firebaseAuth.signInWithEmailAndPassword(email: email, password: password);
-        return true;
-      } catch (e) {
-        debugPrint('Firebase Auth Error: $e');
-      }
-    }
-    // Fallback Mock Sign In
-    await Future.delayed(const Duration(milliseconds: 600));
-    return true; // Simulate success
+  User? get currentUser {
+    return _supabase.auth.currentUser;
   }
 
-  Future<bool> signUpWithEmail(String email, String password) async {
-    if (_firebaseAuth != null) {
-      try {
-        await _firebaseAuth.createUserWithEmailAndPassword(email: email, password: password);
-        return true;
-      } catch (e) {
-        debugPrint('Firebase Auth Sign Up Error: $e');
-      }
-    }
-    await Future.delayed(const Duration(milliseconds: 600));
-    return true;
+  // =========================================================
+  // AUTH STATE
+  // =========================================================
+
+  Stream<AuthState> get authStateChanges {
+    return _supabase.auth.onAuthStateChange;
   }
+
+  // =========================================================
+  // LOGIN
+  // =========================================================
+
+  Future<bool> signInWithEmail(
+    String email,
+    String password,
+  ) async {
+    try {
+      final response =
+          await _supabase.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      return response.user != null;
+    } on AuthException catch (e) {
+      debugPrint(
+        'Supabase Login Error: ${e.message}',
+      );
+      return false;
+    } catch (e) {
+      debugPrint(
+        'Login Error: $e',
+      );
+      return false;
+    }
+  }
+
+  // =========================================================
+  // LOGOUT
+  // =========================================================
 
   Future<void> signOut() async {
-    if (_firebaseAuth != null) {
-      await _firebaseAuth.signOut();
+    try {
+      await _supabase.auth.signOut();
+    } on AuthException catch (e) {
+      debugPrint(
+        'Supabase Logout Error: ${e.message}',
+      );
+    } catch (e) {
+      debugPrint(
+        'Logout Error: $e',
+      );
     }
-    await Future.delayed(const Duration(milliseconds: 300));
   }
 }

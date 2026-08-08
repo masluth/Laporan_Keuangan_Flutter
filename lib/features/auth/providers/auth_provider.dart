@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../data/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -14,7 +16,7 @@ class AuthState {
 
   const AuthState({
     this.isAuthenticated = false,
-    this.isLoading = false,
+    this.isLoading = true,
     this.email,
     this.userName,
     this.error,
@@ -28,7 +30,8 @@ class AuthState {
     String? error,
   }) {
     return AuthState(
-      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isAuthenticated:
+          isAuthenticated ?? this.isAuthenticated,
       isLoading: isLoading ?? this.isLoading,
       email: email ?? this.email,
       userName: userName ?? this.userName,
@@ -41,59 +44,99 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
   AuthNotifier(this._repository)
-      : super(const AuthState(
-          isAuthenticated: true, // Default logged in for smooth demo experience
-          email: 'alex.thompson@greengarden.id',
-          userName: 'Alex Thompson',
-        ));
+      : super(const AuthState()) {
+    _checkSession();
+  }
 
-  Future<bool> login(String email, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
-    final success = await _repository.signInWithEmail(email, password);
-    if (success) {
-      state = state.copyWith(
+  // =========================================================
+  // CHECK SESSION
+  // =========================================================
+
+  void _checkSession() {
+    final session =
+        Supabase.instance.client.auth.currentSession;
+
+    if (session != null) {
+      final user = session.user;
+
+      state = AuthState(
         isAuthenticated: true,
         isLoading: false,
-        email: email,
-        userName: 'Alex Thompson',
+        email: user.email,
+        userName: user.userMetadata?['name'],
       );
-      return true;
     } else {
-      state = state.copyWith(
+      state = const AuthState(
+        isAuthenticated: false,
         isLoading: false,
-        error: 'Gagal masuk. Periksa email & kata sandi.',
       );
-      return false;
     }
   }
 
-  Future<bool> signUp(String email, String password, String name) async {
-    state = state.copyWith(isLoading: true, error: null);
-    final success = await _repository.signUpWithEmail(email, password);
+  // =========================================================
+  // LOGIN
+  // =========================================================
+
+  Future<bool> login(
+    String email,
+    String password,
+  ) async {
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+    );
+
+    final success =
+        await _repository.signInWithEmail(
+      email,
+      password,
+    );
+
     if (success) {
-      state = state.copyWith(
+      final session =
+          Supabase.instance.client.auth.currentSession;
+
+      final user = session?.user;
+
+      state = AuthState(
         isAuthenticated: true,
         isLoading: false,
-        email: email,
-        userName: name.isNotEmpty ? name : 'Alex Thompson',
+        email: user?.email ?? email,
+        userName: user?.userMetadata?['name'],
       );
+
       return true;
-    } else {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Pendaftaran gagal.',
-      );
-      return false;
     }
+
+    state = state.copyWith(
+      isAuthenticated: false,
+      isLoading: false,
+      error: 'Gagal masuk. Periksa email & kata sandi.',
+    );
+
+    return false;
   }
+
+  // =========================================================
+  // LOGOUT
+  // =========================================================
 
   Future<void> logout() async {
     await _repository.signOut();
-    state = const AuthState(isAuthenticated: false);
+
+    state = const AuthState(
+      isAuthenticated: false,
+      isLoading: false,
+    );
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repository);
-});
+final authProvider =
+    StateNotifierProvider<AuthNotifier, AuthState>(
+  (ref) {
+    final repository =
+        ref.watch(authRepositoryProvider);
+
+    return AuthNotifier(repository);
+  },
+);

@@ -2,6 +2,7 @@ import '../../../shared/widgets/status_chip.dart';
 
 class TransactionModel {
   final String id;
+  final String userId;
   final String title;
   final String date;
   final double amount;
@@ -11,6 +12,7 @@ class TransactionModel {
 
   TransactionModel({
     required this.id,
+    required this.userId,
     required this.title,
     required this.date,
     required this.amount,
@@ -19,27 +21,35 @@ class TransactionModel {
     this.category = 'Umum',
   });
 
+  // Convert model ke format yang sesuai dengan kolom Supabase
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'user_id': userId,
       'title': title,
       'date': date,
       'amount': amount,
-      'isExpense': isExpense,
-      'status': status == TransactionStatus.lunas ? 'Lunas' : 'Belum Lunas',
+      'is_expense': isExpense,
+      'status': status == TransactionStatus.lunas
+          ? 'Lunas'
+          : 'Belum Lunas',
       'category': category,
     };
   }
 
-  factory TransactionModel.fromMap(Map<String, dynamic> map, String docId) {
+  // Convert data dari Supabase ke TransactionModel
+  factory TransactionModel.fromMap(Map<String, dynamic> map) {
     return TransactionModel(
-      id: docId,
-      title: map['title'] ?? 'Transaksi',
-      date: map['date'] ?? 'Hari ini',
+      id: map['id']?.toString() ?? '',
+      userId: map['user_id']?.toString() ?? '',
+      title: map['title']?.toString() ?? 'Transaksi',
+      date: map['date']?.toString() ?? 'Hari ini',
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
-      isExpense: map['isExpense'] ?? false,
-      status: map['status'] == 'Lunas' ? TransactionStatus.lunas : TransactionStatus.belumLunas,
-      category: map['category'] ?? 'Umum',
+      isExpense: map['is_expense'] as bool? ?? false,
+      status: map['status'] == 'Lunas'
+          ? TransactionStatus.lunas
+          : TransactionStatus.belumLunas,
+      category: map['category']?.toString() ?? 'Umum',
     );
   }
 }

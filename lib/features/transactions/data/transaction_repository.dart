@@ -1,99 +1,53 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../shared/widgets/status_chip.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'transaction_model.dart';
 
 class TransactionRepository {
-  final FirebaseFirestore? _firestore;
+  final SupabaseClient _supabase;
 
-  TransactionRepository([this._firestore]);
+  TransactionRepository([SupabaseClient? supabase])
+      : _supabase = supabase ?? Supabase.instance.client;
 
-  // Initial Stitch mock transactions
-  static final List<TransactionModel> _mockTransactions = [
-    TransactionModel(
-      id: 'tx_1',
-      title: 'Inventory Restock',
-      date: '24 Oct 2023',
-      amount: 1200000,
-      isExpense: true,
-      status: TransactionStatus.lunas,
-      category: 'Inventaris',
-    ),
-    TransactionModel(
-      id: 'tx_2',
-      title: 'Client Payment - Toko Jaya',
-      date: '23 Oct 2023',
-      amount: 4500000,
-      isExpense: false,
-      status: TransactionStatus.lunas,
-      category: 'Penjualan',
-    ),
-    TransactionModel(
-      id: 'tx_3',
-      title: 'Budi Santoso (Piutang)',
-      date: '23 Oct 2023',
-      amount: 1200000,
-      isExpense: false,
-      status: TransactionStatus.belumLunas,
-      category: 'Piutang',
-    ),
-    TransactionModel(
-      id: 'tx_4',
-      title: 'Utility Bills (Listrik & Air)',
-      date: '22 Oct 2023',
-      amount: 450000,
-      isExpense: true,
-      status: TransactionStatus.lunas,
-      category: 'Operasional',
-    ),
-    TransactionModel(
-      id: 'tx_5',
-      title: 'UD Maju Bersama',
-      date: '22 Oct 2023',
-      amount: 890000,
-      isExpense: false,
-      status: TransactionStatus.lunas,
-      category: 'Penjualan',
-    ),
-    TransactionModel(
-      id: 'tx_6',
-      title: 'Daily Sales - Warung Kopi',
-      date: '22 Oct 2023',
-      amount: 2100000,
-      isExpense: false,
-      status: TransactionStatus.lunas,
-      category: 'Penjualan',
-    ),
-    TransactionModel(
-      id: 'tx_7',
-      title: 'Siti Aminah (Tagihan)',
-      date: '21 Oct 2023',
-      amount: 325000,
-      isExpense: false,
-      status: TransactionStatus.belumLunas,
-      category: 'Piutang',
-    ),
-    TransactionModel(
-      id: 'tx_8',
-      title: 'Logistics Fee & Kurir',
-      date: '21 Oct 2023',
-      amount: 125000,
-      isExpense: true,
-      status: TransactionStatus.lunas,
-      category: 'Logistik',
-    ),
-  ];
+  Future<List<TransactionModel>> getTransactions() async {
+    final user = _supabase.auth.currentUser;
 
-  List<TransactionModel> get mockData => List.unmodifiable(_mockTransactions);
+    if (user == null) {
+      throw Exception('User belum login.');
+    }
+
+    debugPrint('CURRENT SUPABASE USER: ${user.id}');
+    debugPrint('CURRENT SUPABASE EMAIL: ${user.email}');
+
+    final response = await _supabase
+        .from('transactions')
+        .select()
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map(
+          (item) => TransactionModel.fromMap(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList();
+  }
 
   Future<void> addTransaction(TransactionModel item) async {
-    if (_firestore != null) {
-      try {
-        await _firestore.collection('transactions').add(item.toMap());
-        return;
-      } catch (e) {
-        // Fallback to in-memory list
-      }
-    }
-    _mockTransactions.insert(0, item);
+    await _supabase.from('transactions').insert(item.toMap());
+  }
+
+  Future<void> updateTransaction(TransactionModel item) async {
+    await _supabase
+        .from('transactions')
+        .update(item.toMap())
+        .eq('id', item.id);
+  }
+
+  Future<void> deleteTransaction(String id) async {
+    await _supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
   }
 }

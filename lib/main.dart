@@ -21,7 +21,7 @@ Future<void> main() async {
 
   // Supabase
   await Supabase.initialize(
-    url: 'https://rlfzktdllyorqdshwkuf.supabase.co/rest/v1/',
+    url: 'https://rlfzktdllyorqdshwkuf.supabase.co',
     publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZnprdGRsbHlvcnFkc2h3a3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTMwNzEsImV4cCI6MjEwMTY4OTA3MX0.wYHHu5ZJkZlWWHezwzdc-1xTA6IDyOdaXLABjz-TVpg',
   );
 
