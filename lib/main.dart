@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -10,20 +11,54 @@ import 'core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase
+  // =========================================================
+  // FIREBASE
+  // =========================================================
+
+await initializeDateFormatting('id_ID');
+
   try {
     await Firebase.initializeApp();
   } catch (e) {
     debugPrint(
-      'Firebase initialization note: $e (Falling back to in-memory mode)',
+      'Firebase initialization note: $e '
+      '(Falling back to in-memory mode)',
     );
   }
 
-  // Supabase
+  // =========================================================
+  // SUPABASE
+  // =========================================================
+
   await Supabase.initialize(
     url: 'https://rlfzktdllyorqdshwkuf.supabase.co',
-    publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZnprdGRsbHlvcnFkc2h3a3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTMwNzEsImV4cCI6MjEwMTY4OTA3MX0.wYHHu5ZJkZlWWHezwzdc-1xTA6IDyOdaXLABjz-TVpg',
+    publishableKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZnprdGRsbHlvcnFkc2h3a3VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTMwNzEsImV4cCI6MjEwMTY4OTA3MX0.wYHHu5ZJkZlWWHezwzdc-1xTA6IDyOdaXLABjz-TVpg',
   );
+
+  // =========================================================
+  // DEBUG USER
+  // =========================================================
+
+  final currentUser =
+      Supabase.instance.client.auth.currentUser;
+
+  debugPrint(
+    'CURRENT SUPABASE USER: ${currentUser?.id}',
+  );
+
+  debugPrint(
+    'CURRENT SUPABASE EMAIL: ${currentUser?.email}',
+  );
+
+  debugPrint(
+    'CURRENT SUPABASE NAME: '
+    '${currentUser?.userMetadata?['name']}',
+  );
+
+  // =========================================================
+  // RUN APP
+  // =========================================================
 
   runApp(
     const ProviderScope(
@@ -33,18 +68,26 @@ Future<void> main() async {
 }
 
 class RevenantFinanceApp extends ConsumerWidget {
-  const RevenantFinanceApp({super.key});
+  const RevenantFinanceApp({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       title: 'Revenant Finance Manager',
       debugShowCheckedModeBanner: false,
+
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
+
       themeMode: ThemeMode.light,
+
       routerConfig: router,
     );
   }

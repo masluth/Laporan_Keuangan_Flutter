@@ -5,31 +5,46 @@ import '../../../shared/widgets/status_chip.dart';
 import '../data/transaction_model.dart';
 import '../data/transaction_repository.dart';
 
+// =========================================================
+// TRANSACTION REPOSITORY PROVIDER
+// =========================================================
+
 final transactionRepositoryProvider =
-    Provider((ref) {
+    Provider<TransactionRepository>((ref) {
   return TransactionRepository();
 });
+
+// =========================================================
+// TRANSACTION NOTIFIER
+// =========================================================
 
 class TransactionNotifier
     extends StateNotifier<List<TransactionModel>> {
   final TransactionRepository _repository;
 
-  TransactionNotifier(this._repository) : super([]) {
+  TransactionNotifier(this._repository)
+      : super(const []) {
     loadTransactions();
   }
 
-  // =========================
+  // =========================================================
   // READ
-  // =========================
+  // =========================================================
 
   Future<void> loadTransactions() async {
     try {
       final transactions =
           await _repository.getTransactions();
 
+      // Jangan update state kalau notifier
+      // sudah tidak digunakan lagi.
+      if (!mounted) return;
+
       state = transactions;
     } catch (e) {
-      state = [];
+      if (!mounted) return;
+
+      state = const [];
 
       debugPrint(
         'Gagal mengambil transaksi dari Supabase: $e',
@@ -37,14 +52,24 @@ class TransactionNotifier
     }
   }
 
-  // =========================
+  // =========================================================
+  // CLEAR STATE
+  // =========================================================
+
+  void clearTransactions() {
+    state = const [];
+  }
+
+  // =========================================================
   // CREATE
-  // =========================
+  // =========================================================
 
   Future<void> addTransaction(
     TransactionModel item,
   ) async {
     await _repository.addTransaction(item);
+
+    if (!mounted) return;
 
     state = [
       item,
@@ -52,14 +77,16 @@ class TransactionNotifier
     ];
   }
 
-  // =========================
+  // =========================================================
   // UPDATE
-  // =========================
+  // =========================================================
 
   Future<void> updateTransaction(
     TransactionModel item,
   ) async {
     await _repository.updateTransaction(item);
+
+    if (!mounted) return;
 
     state = state.map((transaction) {
       if (transaction.id == item.id) {
@@ -70,25 +97,28 @@ class TransactionNotifier
     }).toList();
   }
 
-  // =========================
+  // =========================================================
   // DELETE
-  // =========================
+  // =========================================================
 
   Future<void> deleteTransaction(
     String id,
   ) async {
     await _repository.deleteTransaction(id);
 
+    if (!mounted) return;
+
     state = state
         .where(
-          (transaction) => transaction.id != id,
+          (transaction) =>
+              transaction.id != id,
         )
         .toList();
   }
 
-  // =========================
+  // =========================================================
   // TOTAL INCOME
-  // =========================
+  // =========================================================
 
   double get totalIncome {
     return state
@@ -99,9 +129,9 @@ class TransactionNotifier
         );
   }
 
-  // =========================
+  // =========================================================
   // TOTAL EXPENSE
-  // =========================
+  // =========================================================
 
   double get totalExpense {
     return state
@@ -112,9 +142,9 @@ class TransactionNotifier
         );
   }
 
-  // =========================
+  // =========================================================
   // TOTAL PIUTANG
-  // =========================
+  // =========================================================
 
   double get totalPiutang {
     return state
@@ -130,15 +160,17 @@ class TransactionNotifier
   }
 }
 
-final transactionProvider =
-    StateNotifierProvider<
-      TransactionNotifier,
-      List<TransactionModel>
-    >(
+// =========================================================
+// TRANSACTION PROVIDER
+// =========================================================
+
+final transactionProvider = StateNotifierProvider<
+    TransactionNotifier,
+    List<TransactionModel>>(
   (ref) {
-    final repo =
+    final repository =
         ref.watch(transactionRepositoryProvider);
 
-    return TransactionNotifier(repo);
+    return TransactionNotifier(repository);
   },
 );
