@@ -31,10 +31,20 @@ class _AddTransactionSheetState
   late final TextEditingController _amountController;
 
   bool _isExpense = true;
+
+  // Default transaksi baru = Lunas.
+  // User tetap dapat mengubahnya menjadi Belum Lunas.
   TransactionStatus _status = TransactionStatus.lunas;
+
   String _category = 'Operasional';
 
   bool _isSaving = false;
+
+  // =========================================================
+  // TANGGAL TRANSAKSI
+  // =========================================================
+
+  late DateTime _selectedDate;
 
   final List<String> _categories = [
     'Operasional',
@@ -61,6 +71,17 @@ class _AddTransactionSheetState
           : '',
     );
 
+    // =======================================================
+    // SET TANGGAL
+    // =======================================================
+
+    if (transaction != null) {
+      _selectedDate =
+          DateTime.tryParse(transaction.date) ?? DateTime.now();
+    } else {
+      _selectedDate = DateTime.now();
+    }
+
     if (transaction != null) {
       _isExpense = transaction.isExpense;
       _status = transaction.status;
@@ -78,9 +99,54 @@ class _AddTransactionSheetState
     super.dispose();
   }
 
-  // =========================
+  // =========================================================
+  // FORMAT TANGGAL UNTUK SUPABASE
+  // =========================================================
+
+  String _formatDate(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+
+    return '$year-$month-$day';
+  }
+
+  // =========================================================
+  // FORMAT TANGGAL UNTUK DITAMPILKAN
+  // =========================================================
+
+  String _formatDisplayDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+
+    return '$day/$month/$year';
+  }
+
+  // =========================================================
+  // DATE PICKER
+  // =========================================================
+
+  Future<void> _selectDate() async {
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedDate = pickedDate;
+    });
+  }
+
+  // =========================================================
   // SAVE / UPDATE
-  // =========================
+  // =========================================================
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
@@ -102,6 +168,7 @@ class _AddTransactionSheetState
           ),
         ),
       );
+
       return;
     }
 
@@ -110,29 +177,31 @@ class _AddTransactionSheetState
     });
 
     try {
-      // =========================
+      // =====================================================
       // MODE EDIT
-      // =========================
+      // =====================================================
 
       if (widget.isEdit) {
         final oldTransaction = widget.transaction!;
 
         final updatedTransaction = TransactionModel(
-          // ID tetap sama
+          // ID tetap
           id: oldTransaction.id,
 
-          // userId tetap milik user yang sama
+          // User tetap
           userId: oldTransaction.userId,
 
+          // Data baru
           title: title,
 
-          // Tanggal lama tetap dipertahankan
-          date: oldTransaction.date,
+          // Tanggal bisa diubah oleh user
+          date: _formatDate(_selectedDate),
 
           amount: amount,
 
           isExpense: _isExpense,
 
+          // Status bisa diubah ketika edit
           status: _status,
 
           category: _category,
@@ -140,7 +209,9 @@ class _AddTransactionSheetState
 
         await ref
             .read(transactionProvider.notifier)
-            .updateTransaction(updatedTransaction);
+            .updateTransaction(
+              updatedTransaction,
+            );
 
         if (!mounted) return;
 
@@ -157,11 +228,12 @@ class _AddTransactionSheetState
         return;
       }
 
-      // =========================
+      // =====================================================
       // MODE TAMBAH
-      // =========================
+      // =====================================================
 
-      final user = Supabase.instance.client.auth.currentUser;
+      final user =
+          Supabase.instance.client.auth.currentUser;
 
       if (user == null) {
         throw Exception(
@@ -172,17 +244,19 @@ class _AddTransactionSheetState
       final newTransaction = TransactionModel(
         id: 'tx_${DateTime.now().millisecondsSinceEpoch}',
 
-        // Ambil ID dari user yang sedang login
+        // UID user yang sedang login
         userId: user.id,
 
         title: title,
 
-        date: 'Hari ini',
+        // Tanggal sesuai pilihan user
+        date: _formatDate(_selectedDate),
 
         amount: amount,
 
         isExpense: _isExpense,
 
+        // Status sesuai pilihan user
         status: _status,
 
         category: _category,
@@ -190,7 +264,9 @@ class _AddTransactionSheetState
 
       await ref
           .read(transactionProvider.notifier)
-          .addTransaction(newTransaction);
+          .addTransaction(
+            newTransaction,
+          );
 
       if (!mounted) return;
 
@@ -210,12 +286,16 @@ class _AddTransactionSheetState
         _isSaving = false;
       });
 
+      debugPrint(
+        'ERROR SAVE TRANSACTION: $e',
+      );
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             widget.isEdit
-                ? 'Gagal memperbarui transaksi'
-                : 'Gagal menambahkan transaksi',
+                ? 'Gagal memperbarui transaksi: $e'
+                : 'Gagal menambahkan transaksi: $e',
           ),
         ),
       );
@@ -226,7 +306,8 @@ class _AddTransactionSheetState
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20.0,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom + 20.0,
         top: 20.0,
         left: 20.0,
         right: 20.0,
@@ -243,11 +324,12 @@ class _AddTransactionSheetState
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch,
             children: [
-              // =========================
+              // =================================================
               // HANDLE
-              // =========================
+              // =================================================
 
               Center(
                 child: Container(
@@ -255,16 +337,17 @@ class _AddTransactionSheetState
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.lightBorder,
-                    borderRadius: BorderRadius.circular(2.0),
+                    borderRadius:
+                        BorderRadius.circular(2.0),
                   ),
                 ),
               ),
 
               const SizedBox(height: 16.0),
 
-              // =========================
+              // =================================================
               // TITLE
-              // =========================
+              // =================================================
 
               Text(
                 widget.isEdit
@@ -280,9 +363,9 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 20.0),
 
-              // =========================
+              // =================================================
               // TRANSACTION TYPE
-              // =========================
+              // =================================================
 
               Row(
                 children: [
@@ -295,13 +378,16 @@ class _AddTransactionSheetState
                             color: !_isExpense
                                 ? Colors.white
                                 : AppColors.incomeGreen,
-                            fontWeight: FontWeight.bold,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
                       ),
                       selected: !_isExpense,
-                      selectedColor: AppColors.incomeGreen,
-                      backgroundColor: AppColors.incomeGreenBg,
+                      selectedColor:
+                          AppColors.incomeGreen,
+                      backgroundColor:
+                          AppColors.incomeGreenBg,
                       onSelected: (_) {
                         setState(() {
                           _isExpense = false;
@@ -321,13 +407,16 @@ class _AddTransactionSheetState
                             color: _isExpense
                                 ? Colors.white
                                 : AppColors.expenseRed,
-                            fontWeight: FontWeight.bold,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
                       ),
                       selected: _isExpense,
-                      selectedColor: AppColors.expenseRed,
-                      backgroundColor: AppColors.expenseRedBg,
+                      selectedColor:
+                          AppColors.expenseRed,
+                      backgroundColor:
+                          AppColors.expenseRedBg,
                       onSelected: (_) {
                         setState(() {
                           _isExpense = true;
@@ -340,19 +429,21 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 16.0),
 
-              // =========================
+              // =================================================
               // TITLE INPUT
-              // =========================
+              // =================================================
 
               TextFormField(
                 controller: _titleController,
                 decoration: const InputDecoration(
-                  labelText: 'Deskripsi / Nama Transaksi',
+                  labelText:
+                      'Deskripsi / Nama Transaksi',
                   hintText:
                       'Contoh: Restock Kopi, Pembayaran Klien',
                 ),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
+                  if (val == null ||
+                      val.trim().isEmpty) {
                     return 'Deskripsi wajib diisi';
                   }
 
@@ -362,27 +453,33 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 14.0),
 
-              // =========================
+              // =================================================
               // AMOUNT INPUT
-              // =========================
+              // =================================================
 
               TextFormField(
                 controller: _amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah Uang (Rp)',
+                keyboardType:
+                    TextInputType.number,
+                decoration:
+                    const InputDecoration(
+                  labelText:
+                      'Jumlah Uang (Rp)',
                   prefixText: 'Rp ',
                 ),
                 validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
+                  if (val == null ||
+                      val.trim().isEmpty) {
                     return 'Jumlah wajib diisi';
                   }
 
-                  final amount = double.tryParse(
+                  final amount =
+                      double.tryParse(
                     val.replaceAll('.', ''),
                   );
 
-                  if (amount == null || amount <= 0) {
+                  if (amount == null ||
+                      amount <= 0) {
                     return 'Jumlah tidak valid';
                   }
 
@@ -392,16 +489,41 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 14.0),
 
-              // =========================
+              // =================================================
+              // TANGGAL TRANSAKSI
+              // =================================================
+
+              TextFormField(
+                readOnly: true,
+                controller: TextEditingController(
+                  text: _formatDisplayDate(
+                    _selectedDate,
+                  ),
+                ),
+                decoration:
+                    const InputDecoration(
+                  labelText: 'Tanggal Transaksi',
+                  suffixIcon: Icon(
+                    Icons.calendar_today_outlined,
+                  ),
+                ),
+                onTap: _selectDate,
+              ),
+
+              const SizedBox(height: 14.0),
+
+              // =================================================
               // CATEGORY
-              // =========================
+              // =================================================
 
               DropdownButtonFormField<String>(
                 initialValue: _category,
-                decoration: const InputDecoration(
+                decoration:
+                    const InputDecoration(
                   labelText: 'Kategori',
                 ),
-                items: _categories.map((cat) {
+                items:
+                    _categories.map((cat) {
                   return DropdownMenuItem<String>(
                     value: cat,
                     child: Text(cat),
@@ -418,16 +540,17 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 14.0),
 
-              // =========================
+              // =================================================
               // STATUS
-              // =========================
+              // =================================================
 
               Text(
                 'Status Pembayaran',
                 style: GoogleFonts.inter(
                   fontSize: 13.0,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondaryLight,
+                  color:
+                      AppColors.textSecondaryLight,
                 ),
               ),
 
@@ -435,23 +558,36 @@ class _AddTransactionSheetState
 
               Row(
                 children: [
+                  // ================================
+                  // LUNAS
+                  // ================================
+
                   Expanded(
                     child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
+                      style:
+                          OutlinedButton.styleFrom(
                         backgroundColor:
-                            _status == TransactionStatus.lunas
-                                ? AppColors.incomeGreenBg
+                            _status ==
+                                    TransactionStatus
+                                        .lunas
+                                ? AppColors
+                                    .incomeGreenBg
                                 : Colors.transparent,
                         side: BorderSide(
-                          color:
-                              _status ==
-                                      TransactionStatus.lunas
-                                  ? AppColors.incomeGreen
-                                  : AppColors.lightBorder,
+                          color: _status ==
+                                  TransactionStatus
+                                      .lunas
+                              ? AppColors
+                                  .incomeGreen
+                              : AppColors
+                                  .lightBorder,
                         ),
-                        shape: RoundedRectangleBorder(
+                        shape:
+                            RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(10.0),
+                              BorderRadius.circular(
+                            10.0,
+                          ),
                         ),
                       ),
                       onPressed: () {
@@ -464,7 +600,8 @@ class _AddTransactionSheetState
                         'Lunas',
                         style: TextStyle(
                           color: Color(0xFF047857),
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                     ),
@@ -472,39 +609,50 @@ class _AddTransactionSheetState
 
                   const SizedBox(width: 12.0),
 
+                  // ================================
+                  // BELUM LUNAS
+                  // ================================
+
                   Expanded(
                     child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
+                      style:
+                          OutlinedButton.styleFrom(
                         backgroundColor:
                             _status ==
                                     TransactionStatus
                                         .belumLunas
-                                ? AppColors.debtAmberBg
+                                ? AppColors
+                                    .debtAmberBg
                                 : Colors.transparent,
                         side: BorderSide(
-                          color:
-                              _status ==
-                                      TransactionStatus
-                                          .belumLunas
-                                  ? AppColors.debtAmber
-                                  : AppColors.lightBorder,
+                          color: _status ==
+                                  TransactionStatus
+                                      .belumLunas
+                              ? AppColors.debtAmber
+                              : AppColors
+                                  .lightBorder,
                         ),
-                        shape: RoundedRectangleBorder(
+                        shape:
+                            RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(10.0),
+                              BorderRadius.circular(
+                            10.0,
+                          ),
                         ),
                       ),
                       onPressed: () {
                         setState(() {
                           _status =
-                              TransactionStatus.belumLunas;
+                              TransactionStatus
+                                  .belumLunas;
                         });
                       },
                       child: const Text(
                         'Belum Lunas',
                         style: TextStyle(
                           color: Color(0xFFB45309),
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                     ),
@@ -514,20 +662,25 @@ class _AddTransactionSheetState
 
               const SizedBox(height: 24.0),
 
-              // =========================
+              // =================================================
               // SAVE / UPDATE BUTTON
-              // =========================
+              // =================================================
 
               ElevatedButton(
-                onPressed: _isSaving ? null : _save,
-                style: ElevatedButton.styleFrom(
+                onPressed:
+                    _isSaving ? null : _save,
+                style:
+                    ElevatedButton.styleFrom(
                   backgroundColor:
                       AppColors.primaryBlue,
                   minimumSize:
                       const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
+                  shape:
+                      RoundedRectangleBorder(
                     borderRadius:
-                        BorderRadius.circular(12.0),
+                        BorderRadius.circular(
+                      12.0,
+                    ),
                   ),
                 ),
                 child: _isSaving
@@ -544,9 +697,11 @@ class _AddTransactionSheetState
                         widget.isEdit
                             ? 'Update Transaksi'
                             : 'Simpan Transaksi',
-                        style: GoogleFonts.inter(
+                        style:
+                            GoogleFonts.inter(
                           fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
               ),

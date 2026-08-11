@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/two_factor_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
@@ -17,22 +18,53 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
 
     redirect: (context, state) {
-      final isLoggingIn = state.matchedLocation == '/login';
+      final location = state.matchedLocation;
 
-      // Auth masih loading.
-      // Jangan lempar user ke dashboard sebelum status session diketahui.
+      final isLoggingIn = location == '/login';
+      final isTwoFactor = location == '/two-factor';
+
+      // =========================================================
+      // AUTH MASIH LOADING
+      // =========================================================
+
       if (authState.isLoading) {
-        return isLoggingIn ? null : '/login';
+        return null;
       }
 
-      // Belum login → wajib ke login.
+      // =========================================================
+      // 2FA DIPERLUKAN
+      // =========================================================
+
+      if (authState.requiresTwoFactor) {
+        if (isTwoFactor) {
+          return null;
+        }
+
+        return '/two-factor';
+      }
+
+      // =========================================================
+      // BELUM LOGIN
+      // =========================================================
+
       if (!authState.isAuthenticated) {
-        return isLoggingIn ? null : '/login';
+        if (isLoggingIn) {
+          return null;
+        }
+
+        return '/login';
       }
 
-      // Sudah login → tidak boleh kembali ke login.
-      if (authState.isAuthenticated && isLoggingIn) {
-        return '/dashboard';
+      // =========================================================
+      // SUDAH LOGIN
+      // =========================================================
+
+      if (authState.isAuthenticated) {
+        if (isLoggingIn || isTwoFactor) {
+          return '/dashboard';
+        }
+
+        return null;
       }
 
       return null;
@@ -42,6 +74,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // =========================================================
       // LOGIN
       // =========================================================
+
       GoRoute(
         path: '/login',
         builder: (context, state) {
@@ -50,8 +83,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // =========================================================
+      // TWO FACTOR
+      // =========================================================
+
+      GoRoute(
+        path: '/two-factor',
+        builder: (context, state) {
+          return const TwoFactorScreen();
+        },
+      ),
+
+      // =========================================================
       // MAIN APPLICATION
       // =========================================================
+
       StatefulShellRoute.indexedStack(
         builder: (
           context,
@@ -60,14 +105,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ) {
           return Scaffold(
             body: navigationShell,
-
             bottomNavigationBar: AppBottomNav(
-              currentIndex: navigationShell.currentIndex,
+              currentIndex:
+                  navigationShell.currentIndex,
               onTap: (index) {
                 navigationShell.goBranch(
                   index,
                   initialLocation:
-                      index == navigationShell.currentIndex,
+                      index ==
+                          navigationShell.currentIndex,
                 );
               },
             ),
@@ -78,6 +124,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // =====================================================
           // DASHBOARD
           // =====================================================
+
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -92,6 +139,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // =====================================================
           // TRANSACTIONS
           // =====================================================
+
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -106,6 +154,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // =====================================================
           // REPORTS
           // =====================================================
+
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -120,6 +169,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // =====================================================
           // PROFILE
           // =====================================================
+
           StatefulShellBranch(
             routes: [
               GoRoute(

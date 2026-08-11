@@ -14,6 +14,10 @@ class TransactionTile extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
+  // Menentukan apakah tombol Edit dan Delete ditampilkan.
+  // Default true supaya halaman Transactions tetap memiliki tombol aksi.
+  final bool showActions;
+
   const TransactionTile({
     super.key,
     required this.title,
@@ -23,6 +27,7 @@ class TransactionTile extends StatelessWidget {
     required this.status,
     this.onEdit,
     this.onDelete,
+    this.showActions = true,
   });
 
   @override
@@ -42,6 +47,7 @@ class TransactionTile extends StatelessWidget {
           // =========================
           // TRANSACTION ICON
           // =========================
+
           Container(
             width: 44,
             height: 44,
@@ -66,6 +72,7 @@ class TransactionTile extends StatelessWidget {
           // =========================
           // TRANSACTION INFO
           // =========================
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,6 +109,7 @@ class TransactionTile extends StatelessWidget {
           // =========================
           // AMOUNT + ACTION
           // =========================
+
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -116,46 +124,52 @@ class TransactionTile extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 8),
+              // =========================
+              // EDIT + DELETE
+              // =========================
 
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // EDIT
-                  IconButton(
-                    onPressed: onEdit,
-                    tooltip: 'Edit',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    splashRadius: 20,
-                    icon: const Icon(
-                      Icons.edit_rounded,
-                      size: 19,
-                      color: AppColors.primaryBlue,
-                    ),
-                  ),
+              if (showActions) ...[
+                const SizedBox(height: 8),
 
-                  // DELETE
-                  IconButton(
-                    onPressed: onDelete,
-                    tooltip: 'Hapus',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // EDIT
+                    IconButton(
+                      onPressed: onEdit,
+                      tooltip: 'Edit',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      splashRadius: 20,
+                      icon: const Icon(
+                        Icons.edit_rounded,
+                        size: 19,
+                        color: AppColors.primaryBlue,
+                      ),
                     ),
-                    splashRadius: 20,
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 20,
-                      color: Colors.red,
+
+                    // DELETE
+                    IconButton(
+                      onPressed: onDelete,
+                      tooltip: 'Hapus',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      splashRadius: 20,
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        size: 20,
+                        color: Colors.red,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],

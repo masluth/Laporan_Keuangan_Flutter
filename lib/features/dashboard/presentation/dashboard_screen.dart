@@ -2,45 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/financial_card.dart';
 import '../../../shared/widgets/transaction_tile.dart';
+
 import '../../auth/providers/auth_provider.dart';
 import '../../transactions/presentation/add_transaction_sheet.dart';
 import '../../transactions/providers/transaction_provider.dart';
+
 import 'cash_flow_chart.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  // =========================================================
-  // NAMA BULAN INDONESIA
-  // Tidak menggunakan DateFormat agar tidak membutuhkan
-  // initializeDateFormatting().
-  // =========================================================
-
-  String _getCurrentMonthName() {
-    const months = [
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
-      'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember',
-    ];
-
-    final now = DateTime.now();
-
-    return months[now.month - 1];
-  }
 
   // =========================================================
   // ADD TRANSACTION
@@ -68,57 +44,88 @@ class DashboardScreen extends ConsumerWidget {
     final transactions = ref.watch(transactionProvider);
 
     // =======================================================
-    // CURRENT MONTH
+    // DEBUG TRANSACTIONS
     // =======================================================
 
-    final currentMonthName = _getCurrentMonthName();
+    debugPrint('========================================');
+    debugPrint('===== DASHBOARD TRANSACTIONS =====');
+    debugPrint(
+      'TOTAL TRANSACTIONS: ${transactions.length}',
+    );
+
+    for (final transaction in transactions) {
+      debugPrint(
+        'TITLE: ${transaction.title} | '
+        'STATUS: ${transaction.status} | '
+        'STATUS NAME: ${transaction.status.name} | '
+        'AMOUNT: ${transaction.amount} | '
+        'DATE: ${transaction.date} | '
+        'IS EXPENSE: ${transaction.isExpense}',
+      );
+    }
+
+    debugPrint('========================================');
 
     // =======================================================
-    // FINANCIAL CALCULATION
+    // CURRENCY FORMAT
+    // =======================================================
+
+    final currencyFormat = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+
+    // =======================================================
+    // TOTAL INCOME
     // =======================================================
 
     final double incomeSum = transactions
-        .where((t) => !t.isExpense)
+        .where(
+          (transaction) => !transaction.isExpense,
+        )
         .fold(
           0.0,
-          (sum, t) => sum + t.amount,
+          (sum, transaction) => sum + transaction.amount,
         );
+
+    // =======================================================
+    // TOTAL EXPENSE
+    // =======================================================
 
     final double expenseSum = transactions
-        .where((t) => t.isExpense)
-        .fold(
-          0.0,
-          (sum, t) => sum + t.amount,
-        );
-
-    final double piutangSum = transactions
         .where(
-          (t) => t.status.name == 'belumLunas',
+          (transaction) => transaction.isExpense,
         )
         .fold(
           0.0,
-          (sum, t) => sum + t.amount,
+          (sum, transaction) => sum + transaction.amount,
         );
 
     // =======================================================
-    // JUMLAH PIUTANG AKTIF
-    // Tidak lagi hardcode "2 tagihan aktif".
+    // TOTAL PIUTANG
     // =======================================================
 
-    final int activePiutangCount = transactions
-        .where(
-          (t) => t.status.name == 'belumLunas',
-        )
-        .length;
+    final piutangTransactions = transactions.where(
+      (transaction) =>
+          transaction.status.name == 'belumLunas',
+    );
+
+    final double piutangSum = piutangTransactions.fold(
+      0.0,
+      (sum, transaction) => sum + transaction.amount,
+    );
 
     // =======================================================
-    // USER NAME
+    // JUMLAH PIUTANG
     // =======================================================
 
-    final String displayName =
-        authState.userName?.trim().isNotEmpty == true
-            ? authState.userName!.trim()
-            : 'User';
+    final int jumlahPiutang =
+        piutangTransactions.length;
+
+    // =======================================================
+    // DASHBOARD
+    // =======================================================
 
     return Scaffold(
       backgroundColor: AppColors.lightBg,
@@ -192,9 +199,8 @@ class DashboardScreen extends ConsumerWidget {
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
-
             // =================================================
-            // DARK HEADER / HERO
+            // DARK HEADER
             // =================================================
 
             Container(
@@ -219,6 +225,9 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
+                  // -----------------------------------------
+                  // GREETING
+                  // -----------------------------------------
 
                   Text(
                     'GOOD MORNING,',
@@ -233,12 +242,11 @@ class DashboardScreen extends ConsumerWidget {
 
                   const SizedBox(height: 4.0),
 
-                  // =================================================
-                  // USER NAME DARI SUPABASE
-                  // =================================================
-
                   Text(
-                    displayName.toUpperCase(),
+                    (
+                      authState.userName ??
+                      'Alex Thompson'
+                    ).toUpperCase(),
                     style: GoogleFonts.inter(
                       fontSize: 22.0,
                       fontWeight: FontWeight.w800,
@@ -248,9 +256,9 @@ class DashboardScreen extends ConsumerWidget {
 
                   const SizedBox(height: 20.0),
 
-                  // =================================================
+                  // -----------------------------------------
                   // CASH FLOW CHART
-                  // =================================================
+                  // -----------------------------------------
 
                   const CashFlowChart(
                     isDarkTheme: true,
@@ -259,9 +267,9 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
 
-            // =====================================================
-            // MAIN CONTENT
-            // =====================================================
+            // =================================================
+            // DASHBOARD CONTENT
+            // =================================================
 
             Padding(
               padding:
@@ -271,10 +279,9 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
-
-                  // =================================================
+                  // =========================================
                   // OPERATIONAL OVERVIEW
-                  // =================================================
+                  // =========================================
 
                   Text(
                     'Operational Overview',
@@ -284,9 +291,9 @@ class DashboardScreen extends ConsumerWidget {
 
                   const SizedBox(height: 14.0),
 
-                  // =================================================
+                  // =========================================
                   // FINANCIAL CARDS
-                  // =================================================
+                  // =========================================
 
                   GridView.count(
                     crossAxisCount: 2,
@@ -296,17 +303,17 @@ class DashboardScreen extends ConsumerWidget {
                     shrinkWrap: true,
                     physics:
                         const NeverScrollableScrollPhysics(),
-
                     children: [
-
-                      // =================================================
+                      // -------------------------------------
                       // TOTAL INCOME
-                      // =================================================
+                      // -------------------------------------
 
                       FinancialCard(
                         title: 'Total Income',
                         value:
-                            'Rp ${(incomeSum / 1000000).toStringAsFixed(1)}M',
+                            currencyFormat.format(
+                          incomeSum,
+                        ),
                         icon:
                             Icons.trending_up_rounded,
                         iconColor:
@@ -314,17 +321,19 @@ class DashboardScreen extends ConsumerWidget {
                         iconBgColor:
                             AppColors.incomeGreenBg,
                         subtitle:
-                            '$currentMonthName ${DateTime.now().year}',
+                            'Total pemasukan',
                       ),
 
-                      // =================================================
+                      // -------------------------------------
                       // TOTAL EXPENSE
-                      // =================================================
+                      // -------------------------------------
 
                       FinancialCard(
                         title: 'Total Expense',
                         value:
-                            'Rp ${(expenseSum / 1000000).toStringAsFixed(1)}M',
+                            currencyFormat.format(
+                          expenseSum,
+                        ),
                         icon:
                             Icons.trending_down_rounded,
                         iconColor:
@@ -332,34 +341,34 @@ class DashboardScreen extends ConsumerWidget {
                         iconBgColor:
                             AppColors.expenseRedBg,
                         subtitle:
-                            '$currentMonthName ${DateTime.now().year}',
+                            'Total pengeluaran',
                       ),
 
-                      // =================================================
+                      // -------------------------------------
                       // TOTAL PIUTANG
-                      // =================================================
+                      // -------------------------------------
 
                       FinancialCard(
                         title: 'Total Piutang',
                         value:
-                            'Rp ${(piutangSum / 1000000).toStringAsFixed(1)}M',
+                            currencyFormat.format(
+                          piutangSum,
+                        ),
                         icon:
                             Icons.account_balance_outlined,
                         iconColor:
                             AppColors.debtAmber,
                         iconBgColor:
                             AppColors.debtAmberBg,
-
-                        // Dinamis berdasarkan database
                         subtitle:
-                            activePiutangCount == 0
-                                ? 'Tidak ada tagihan aktif'
-                                : '$activePiutangCount tagihan aktif',
+                            jumlahPiutang == 0
+                                ? 'Tidak ada piutang'
+                                : '$jumlahPiutang transaksi belum lunas',
                       ),
 
-                      // =================================================
-                      // TOTAL TRANSACTIONS
-                      // =================================================
+                      // -------------------------------------
+                      // TRANSACTIONS
+                      // -------------------------------------
 
                       FinancialCard(
                         title: 'Transactions',
@@ -371,25 +380,22 @@ class DashboardScreen extends ConsumerWidget {
                             AppColors.primaryBlue,
                         iconBgColor:
                             const Color(0xFFEFF6FF),
-
-                        // Tidak lagi hardcode Oktober
                         subtitle:
-                            '$currentMonthName ${DateTime.now().year}',
+                            'Total transaksi',
                       ),
                     ],
                   ),
 
                   const SizedBox(height: 28.0),
 
-                  // =================================================
+                  // =========================================
                   // RECENT TRANSACTIONS HEADER
-                  // =================================================
+                  // =========================================
 
                   Row(
                     mainAxisAlignment:
                         MainAxisAlignment.spaceBetween,
                     children: [
-
                       Text(
                         'Recent Transactions',
                         style:
@@ -404,7 +410,8 @@ class DashboardScreen extends ConsumerWidget {
                         },
                         child: Text(
                           'Lihat Semua',
-                          style: GoogleFonts.inter(
+                          style:
+                              GoogleFonts.inter(
                             color:
                                 AppColors.primaryBlue,
                             fontWeight:
@@ -418,12 +425,11 @@ class DashboardScreen extends ConsumerWidget {
 
                   const SizedBox(height: 10.0),
 
-                  // =================================================
-                  // TRANSACTION LIST
-                  // =================================================
+                  // =========================================
+                  // RECENT TRANSACTIONS
+                  // =========================================
 
                   if (transactions.isEmpty)
-
                     Container(
                       width: double.infinity,
                       padding:
@@ -439,12 +445,10 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       child: Column(
                         children: [
-
                           const Icon(
                             Icons.receipt_long_outlined,
-                            size: 42,
-                            color:
-                                AppColors.textMutedLight,
+                            size: 42.0,
+                            color: Colors.grey,
                           ),
 
                           const SizedBox(height: 12.0),
@@ -457,7 +461,8 @@ class DashboardScreen extends ConsumerWidget {
                               fontWeight:
                                   FontWeight.w600,
                               color:
-                                  AppColors.textPrimaryLight,
+                                  AppColors
+                                      .textPrimaryLight,
                             ),
                           ),
 
@@ -471,29 +476,24 @@ class DashboardScreen extends ConsumerWidget {
                                 GoogleFonts.inter(
                               fontSize: 12.0,
                               color:
-                                  AppColors.textSecondaryLight,
+                                  AppColors
+                                      .textSecondaryLight,
                             ),
                           ),
                         ],
                       ),
                     )
-
                   else
-
                     ListView.builder(
                       itemCount:
                           transactions.length > 5
                               ? 5
                               : transactions.length,
-
                       shrinkWrap: true,
-
                       physics:
                           const NeverScrollableScrollPhysics(),
-
                       itemBuilder:
                           (context, index) {
-
                         final item =
                             transactions[index];
 
@@ -501,11 +501,19 @@ class DashboardScreen extends ConsumerWidget {
                           title: item.title,
                           date: item.date,
                           amount:
-                              'Rp ${item.amount.toStringAsFixed(0)}',
+                              currencyFormat.format(
+                            item.amount,
+                          ),
                           isExpense:
                               item.isExpense,
                           status:
                               item.status,
+
+                          // =================================================
+                          // DASHBOARD TIDAK MENAMPILKAN EDIT & DELETE
+                          // =================================================
+
+                          showActions: false,
                         );
                       },
                     ),
@@ -517,23 +525,22 @@ class DashboardScreen extends ConsumerWidget {
       ),
 
       // =====================================================
-      // FLOATING ACTION BUTTON
+      // ADD TRANSACTION BUTTON
       // =====================================================
 
       floatingActionButton:
           FloatingActionButton.extended(
         onPressed: () {
-          _showAddTransactionSheet(context);
+          _showAddTransactionSheet(
+            context,
+          );
         },
-
         backgroundColor:
             AppColors.primaryBlue,
-
         icon: const Icon(
           Icons.add_rounded,
           color: Colors.white,
         ),
-
         label: Text(
           'Tambah Transaksi',
           style: GoogleFonts.inter(

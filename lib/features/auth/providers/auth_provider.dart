@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/auth_repository.dart';
+import '../../security/data/security_repository.dart';
 import '../../transactions/providers/transaction_provider.dart';
 
 // =========================================================
@@ -14,12 +15,21 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 // =========================================================
+// SECURITY REPOSITORY PROVIDER
+// =========================================================
+
+final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
+  return SecurityRepository();
+});
+
+// =========================================================
 // AUTH STATE
 // =========================================================
 
 class AuthState {
   final bool isAuthenticated;
   final bool isLoading;
+  final bool requiresTwoFactor;
   final String? email;
   final String? userName;
   final String? error;
@@ -27,6 +37,7 @@ class AuthState {
   const AuthState({
     this.isAuthenticated = false,
     this.isLoading = true,
+    this.requiresTwoFactor = false,
     this.email,
     this.userName,
     this.error,
@@ -35,20 +46,26 @@ class AuthState {
   AuthState copyWith({
     bool? isAuthenticated,
     bool? isLoading,
+    bool? requiresTwoFactor,
     String? email,
     String? userName,
     String? error,
+    bool clearError = false,
   }) {
     return AuthState(
       isAuthenticated:
           isAuthenticated ?? this.isAuthenticated,
       isLoading:
           isLoading ?? this.isLoading,
+      requiresTwoFactor:
+          requiresTwoFactor ?? this.requiresTwoFactor,
       email:
           email ?? this.email,
       userName:
           userName ?? this.userName,
-      error: error,
+      error: clearError
+          ? null
+          : (error ?? this.error),
     );
   }
 }
@@ -59,10 +76,12 @@ class AuthState {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final SecurityRepository _securityRepository;
   final Ref _ref;
 
   AuthNotifier(
     this._repository,
+    this._securityRepository,
     this._ref,
   ) : super(const AuthState()) {
     _checkSession();
@@ -83,7 +102,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
        * created_at
        * updated_at
        *
-       * Kolom "id" berisi UUID yang sama
+       * Kolom "id" menggunakan UUID yang sama
        * dengan auth.users.id.
        */
 
@@ -127,10 +146,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final session =
           Supabase.instance.client.auth.currentSession;
 
+      // -----------------------------------------------------
+      // TIDAK ADA SESSION
+      // -----------------------------------------------------
+
       if (session == null) {
         state = const AuthState(
           isAuthenticated: false,
           isLoading: false,
+          requiresTwoFactor: false,
+        );
+
+        debugPrint(
+          'TIDAK ADA SESSION USER.',
         );
 
         return;
@@ -138,14 +166,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final user = session.user;
 
-      final userName = await _getUserName(user);
+      // -----------------------------------------------------
+      // GET PROFILE
+      // -----------------------------------------------------
 
-      state = AuthState(
-        isAuthenticated: true,
-        isLoading: false,
-        email: user.email,
-        userName: userName,
-      );
+      final userName =
+          await _getUserName(user);
+
+      // -----------------------------------------------------
+      // CEK 2FA
+      // -----------------------------------------------------
+
+      final twoFactorEnabled =
+          await _securityRepository.isTwoFactorEnabled();
 
       debugPrint(
         'CURRENT USER ID: ${user.id}',
@@ -158,6 +191,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint(
         'CURRENT USER NAME: $userName',
       );
+
+      debugPrint(
+        'CURRENT 2FA ENABLED: $twoFactorEnabled',
+      );
+
+      // -----------------------------------------------------
+      // 2FA AKTIF
+      // -----------------------------------------------------
+
+      if (twoFactorEnabled) {
+        state = AuthState(
+          isAuthenticated: false,
+          isLoading: false,
+          requiresTwoFactor: true,
+          email: user.email,
+          userName: userName,
+        );
+
+        debugPrint(
+          'Session ditemukan. 2FA diperlukan.',
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------------
+      // 2FA TIDAK AKTIF
+      // -----------------------------------------------------
+
+      state = AuthState(
+        isAuthenticated: true,
+        isLoading: false,
+        requiresTwoFactor: false,
+        email: user.email,
+        userName: userName,
+      );
+
+      debugPrint(
+        'Session valid. User authenticated.',
+      );
     } catch (e) {
       debugPrint(
         'Check Session Error: $e',
@@ -166,6 +239,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = const AuthState(
         isAuthenticated: false,
         isLoading: false,
+        requiresTwoFactor: false,
       );
     }
   }
@@ -181,7 +255,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(
       isLoading: true,
       error: null,
+      clearError: true,
     );
+
+    // -----------------------------------------------------
+    // LOGIN SUPABASE
+    // -----------------------------------------------------
 
     final success =
         await _repository.signInWithEmail(
@@ -189,10 +268,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       password,
     );
 
+    // -----------------------------------------------------
+    // LOGIN GAGAL
+    // -----------------------------------------------------
+
     if (!success) {
       state = state.copyWith(
         isAuthenticated: false,
         isLoading: false,
+        requiresTwoFactor: false,
         error:
             'Gagal masuk. Periksa email & kata sandi.',
       );
@@ -201,6 +285,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     try {
+      // ---------------------------------------------------
+      // GET SESSION
+      // ---------------------------------------------------
+
       final session =
           Supabase.instance.client.auth.currentSession;
 
@@ -210,25 +298,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = state.copyWith(
           isAuthenticated: false,
           isLoading: false,
+          requiresTwoFactor: false,
           error: 'User tidak ditemukan.',
         );
 
         return false;
       }
 
-      // ===================================================
-      // AMBIL NAMA DARI TABLE PROFILES
-      // ===================================================
+      // ---------------------------------------------------
+      // GET PROFILE
+      // ---------------------------------------------------
 
       final userName =
           await _getUserName(user);
 
-      state = AuthState(
-        isAuthenticated: true,
-        isLoading: false,
-        email: user.email ?? email,
-        userName: userName,
-      );
+      // ---------------------------------------------------
+      // CEK 2FA
+      // ---------------------------------------------------
+
+      final twoFactorEnabled =
+          await _securityRepository.isTwoFactorEnabled();
 
       debugPrint(
         'LOGIN USER ID: ${user.id}',
@@ -242,9 +331,49 @@ class AuthNotifier extends StateNotifier<AuthState> {
         'LOGIN USER NAME: $userName',
       );
 
-      // ===================================================
+      debugPrint(
+        'LOGIN 2FA ENABLED: $twoFactorEnabled',
+      );
+
+      // ---------------------------------------------------
+      // 2FA AKTIF
+      // ---------------------------------------------------
+
+      if (twoFactorEnabled) {
+        state = AuthState(
+          isAuthenticated: false,
+          isLoading: false,
+          requiresTwoFactor: true,
+          email: user.email ?? email,
+          userName: userName,
+        );
+
+        debugPrint(
+          '2FA diperlukan sebelum masuk dashboard.',
+        );
+
+        return true;
+      }
+
+      // ---------------------------------------------------
+      // 2FA TIDAK AKTIF
+      // ---------------------------------------------------
+
+      state = AuthState(
+        isAuthenticated: true,
+        isLoading: false,
+        requiresTwoFactor: false,
+        email: user.email ?? email,
+        userName: userName,
+      );
+
+      debugPrint(
+        'Login berhasil tanpa 2FA.',
+      );
+
+      // ---------------------------------------------------
       // RESET TRANSACTION STATE
-      // ===================================================
+      // ---------------------------------------------------
 
       _ref.invalidate(transactionProvider);
 
@@ -257,6 +386,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(
         isAuthenticated: false,
         isLoading: false,
+        requiresTwoFactor: false,
         error:
             'Gagal mengambil data profil.',
       );
@@ -266,21 +396,199 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // =======================================================
+  // VERIFY TWO FACTOR
+  // =======================================================
+
+  Future<bool> verifyTwoFactor(
+    String pin,
+  ) async {
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      clearError: true,
+    );
+
+    try {
+      // ---------------------------------------------------
+      // VERIFY PIN
+      // ---------------------------------------------------
+
+      final verified =
+          await _securityRepository.verifyPin(pin);
+
+      // ---------------------------------------------------
+      // PIN SALAH
+      // ---------------------------------------------------
+
+      if (!verified) {
+        state = state.copyWith(
+          isAuthenticated: false,
+          isLoading: false,
+          requiresTwoFactor: true,
+          error: 'PIN 2FA salah.',
+        );
+
+        debugPrint(
+          '2FA verification gagal.',
+        );
+
+        return false;
+      }
+
+      // ---------------------------------------------------
+      // GET SESSION
+      // ---------------------------------------------------
+
+      final session =
+          Supabase.instance.client.auth.currentSession;
+
+      final user = session?.user;
+
+      if (user == null) {
+        state = state.copyWith(
+          isAuthenticated: false,
+          isLoading: false,
+          requiresTwoFactor: false,
+          error:
+              'Session user tidak ditemukan.',
+        );
+
+        return false;
+      }
+
+      // ---------------------------------------------------
+      // GET PROFILE
+      // ---------------------------------------------------
+
+      final userName =
+          await _getUserName(user);
+
+      // ---------------------------------------------------
+      // AUTHENTICATION SELESAI
+      // ---------------------------------------------------
+
+      state = AuthState(
+        isAuthenticated: true,
+        isLoading: false,
+        requiresTwoFactor: false,
+        email: user.email,
+        userName: userName,
+      );
+
+      // ---------------------------------------------------
+      // RESET TRANSACTION STATE
+      // ---------------------------------------------------
+
+      _ref.invalidate(transactionProvider);
+
+      debugPrint(
+        '2FA berhasil diverifikasi.',
+      );
+
+      debugPrint(
+        'User diperbolehkan masuk dashboard.',
+      );
+
+      return true;
+    } catch (e) {
+      debugPrint(
+        'Verify 2FA Error: $e',
+      );
+
+      state = state.copyWith(
+        isAuthenticated: false,
+        isLoading: false,
+        requiresTwoFactor: true,
+        error:
+            'Terjadi kesalahan saat memverifikasi PIN.',
+      );
+
+      return false;
+    }
+  }
+
+  // =======================================================
+  // CANCEL TWO FACTOR LOGIN
+  // =======================================================
+
+  Future<void> cancelTwoFactorLogin() async {
+    try {
+      /*
+       * Login email/password sudah membuat session
+       * Supabase.
+       *
+       * Karena PIN 2FA belum berhasil diverifikasi,
+       * session tersebut harus dibuang ketika user
+       * membatalkan proses login.
+       */
+
+      await _repository.signOut();
+
+      // ---------------------------------------------------
+      // RESET TRANSACTION STATE
+      // ---------------------------------------------------
+
+      _ref.invalidate(transactionProvider);
+
+      // ---------------------------------------------------
+      // RESET AUTH STATE
+      // ---------------------------------------------------
+
+      state = const AuthState(
+        isAuthenticated: false,
+        isLoading: false,
+        requiresTwoFactor: false,
+        email: null,
+        userName: null,
+        error: null,
+      );
+
+      debugPrint(
+        '2FA LOGIN DIBATALKAN.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Cancel Two Factor Login Error: $e',
+      );
+
+      // Tetap reset state aplikasi.
+      state = const AuthState(
+        isAuthenticated: false,
+        isLoading: false,
+        requiresTwoFactor: false,
+        email: null,
+        userName: null,
+        error: null,
+      );
+    }
+  }
+
+  // =======================================================
   // LOGOUT
   // =======================================================
 
   Future<void> logout() async {
     try {
-      // Logout dari Supabase.
+      // ---------------------------------------------------
+      // LOGOUT SUPABASE
+      // ---------------------------------------------------
+
       await _repository.signOut();
 
-      // Buang transaksi user sebelumnya.
+      // ---------------------------------------------------
+      // RESET TRANSACTION STATE
+      // ---------------------------------------------------
+
       _ref.invalidate(transactionProvider);
 
-      // Reset auth state.
+      // ---------------------------------------------------
+      // RESET AUTH STATE
+      // ---------------------------------------------------
+
       state = const AuthState(
         isAuthenticated: false,
         isLoading: false,
+        requiresTwoFactor: false,
         email: null,
         userName: null,
         error: null,
@@ -307,8 +615,12 @@ final authProvider =
     final repository =
         ref.watch(authRepositoryProvider);
 
+    final securityRepository =
+        ref.watch(securityRepositoryProvider);
+
     return AuthNotifier(
       repository,
+      securityRepository,
       ref,
     );
   },
