@@ -24,17 +24,30 @@ class FinancialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDarkTheme ? AppColors.darkSlateCard : Colors.white;
-    final borderColor = isDarkTheme ? AppColors.darkSlateBorder : AppColors.lightBorder;
-    final titleColor = isDarkTheme ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final valueColor = isDarkTheme ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final bgColor =
+        isDarkTheme ? AppColors.darkSlateCard : Colors.white;
+
+    final borderColor =
+        isDarkTheme ? AppColors.darkSlateBorder : AppColors.lightBorder;
+
+    final titleColor =
+        isDarkTheme ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+
+    final valueColor =
+        isDarkTheme ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+
+    final mutedColor =
+        isDarkTheme ? AppColors.textMutedDark : AppColors.textMutedLight;
 
     return Container(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: borderColor, width: 1.0),
+        border: Border.all(
+          color: borderColor,
+          width: 1.0,
+        ),
         boxShadow: isDarkTheme
             ? []
             : [
@@ -46,36 +59,64 @@ class FinancialCard extends StatelessWidget {
               ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: AppTextStyles.labelMedium(color: titleColor),
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelMedium(
+                    color: titleColor,
+                  ),
+                ),
               ),
+
+              const SizedBox(width: 8.0),
+
               Container(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(7.0),
                 decoration: BoxDecoration(
                   color: iconBgColor,
                   borderRadius: BorderRadius.circular(10.0),
                 ),
-                child: Icon(icon, size: 18.0, color: iconColor),
+                child: Icon(
+                  icon,
+                  size: 18.0,
+                  color: iconColor,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12.0),
-          Text(
-            value,
-            style: AppTextStyles.numericData(color: valueColor, fontSize: 20.0),
+
+          const SizedBox(height: 8.0),
+
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: AppTextStyles.numericData(
+                color: valueColor,
+                fontSize: 20.0,
+              ),
+            ),
           ),
+
           if (subtitle != null) ...[
-            const SizedBox(height: 4.0),
+            const SizedBox(height: 2.0),
+
             Text(
               subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.bodySmall(
-                color: isDarkTheme ? AppColors.textMutedDark : AppColors.textMutedLight,
+                color: mutedColor,
               ),
             ),
           ],

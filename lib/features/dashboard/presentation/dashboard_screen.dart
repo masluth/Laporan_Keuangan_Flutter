@@ -230,7 +230,7 @@ class DashboardScreen extends ConsumerWidget {
                   // -----------------------------------------
 
                   Text(
-                    'GOOD MORNING,',
+                    'Welcome Back Sir',
                     style: GoogleFonts.inter(
                       fontSize: 12.0,
                       fontWeight: FontWeight.bold,

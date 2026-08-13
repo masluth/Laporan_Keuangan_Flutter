@@ -50,6 +50,8 @@ dependencies:
   supabase_flutter: ^2.9.1
   cryptography: ^2.9.0
   cryptography_flutter: ^2.3.4
+  image_picker: ^1.1.2
+  crop_image: ^1.0.17
 
 dev_dependencies:
   flutter_test:
