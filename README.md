@@ -102,6 +102,7 @@ Dashboard menampilkan ringkasan kondisi keuangan berdasarkan transaksi yang dimi
 Pengguna dapat melihat grafik untuk membantu memahami pola pemasukan dan pengeluaran.
 Pengguna dapat menggunakan fitur export untuk membuat laporan keuangan.
 Alur Penggunaan
+
 Login / Register
        ↓
    Dashboard
@@ -118,6 +119,7 @@ Laporan Keuangan
        ↓
    Export Laporan
 Build Android
+
 
 Jika ingin membuat file APK untuk Android, jalankan:
 
