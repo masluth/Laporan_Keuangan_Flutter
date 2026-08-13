@@ -38,7 +38,8 @@ Untuk memastikan Flutter sudah terpasang dengan benar, jalankan:
 
 flutter doctor
 
-Cara Instalasi
+Cara Instalasi:
+
 1. Clone Repository
 
 Clone repository menggunakan Git dengan perintah berikut:
@@ -56,6 +57,7 @@ Ganti USERNAME/NAMA-REPOSITORY dengan alamat repository GitHub yang sebenarnya.
 Setelah masuk ke folder project, jalankan perintah berikut untuk mengunduh semua dependency yang digunakan:
 
 flutter pub get
+
 3. Konfigurasi Supabase
 
 Project ini menggunakan Supabase sebagai backend untuk authentication dan penyimpanan data.
