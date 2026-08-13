@@ -104,19 +104,19 @@ Pengguna dapat menggunakan fitur export untuk membuat laporan keuangan.
 Alur Penggunaan
 
 Login / Register
-       ↓
+       -->
    Dashboard
-       ↓
+       -->
 Tambah Transaksi
-       ↓
+       -->
 Riwayat Transaksi
-       ↓
+       -->
 Detail Transaksi
-       ↓
+       -->
 Edit / Hapus Transaksi
-       ↓
+       -->
 Laporan Keuangan
-       ↓
+       -->
    Export Laporan
 Build Android
 
