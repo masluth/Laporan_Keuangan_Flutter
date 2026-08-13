@@ -37,6 +37,7 @@ Akun Supabase dan project Supabase yang sudah dibuat
 Untuk memastikan Flutter sudah terpasang dengan benar, jalankan:
 
 flutter doctor
+
 Cara Instalasi
 1. Clone Repository
 
